@@ -41,8 +41,6 @@ Due to YouTube's restrictions on direct downloads from Google Colab, the most re
 You can choose between different Demucs models:
 
 - `htdemucs`: General-purpose model (default)
-- `htdemucs_ft`: Fine-tuned model for better vocal separation
-- `htdemucs_6s`: Six-source model (vocals, drums, bass, guitar, piano, other)
 
 ### GPU Acceleration
 
@@ -65,4 +63,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Demucs](https://github.com/facebookresearch/demucs) for the audio separation technology
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube downloading capabilities
 - Inspired by [Tafrigh](https://github.com/ieasybooks/tafrigh), which uses a similar approach for transcription
-- I overheard my daughters saying `Salsa Milk` in one of their pretend-play games and found it funny. They then requested I use this name for my next project.
+- I overheard my daughters saying `Salsa Milk` in one of their pretend-play games. They then requested I use this name for my next project.
