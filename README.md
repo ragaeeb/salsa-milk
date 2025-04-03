@@ -62,5 +62,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [Demucs](https://github.com/facebookresearch/demucs) for the audio separation technology
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube downloading capabilities
-- Inspired by [Tafrigh](https://github.com/ieasybooks/tafrigh), which uses a similar approach for transcription
+- Inspired by [Tafrigh](https://github.com/ieasybooks/tafrigh), which was used as a template for the Google Colab notebook.
 - I overheard my daughters saying `Salsa Milk` in one of their pretend-play games. They then requested I use this name for my next project.
