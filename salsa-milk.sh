@@ -1,14 +1,27 @@
 #!/bin/bash
 set -e
 
-# Default memory limit - increased to 8GB
-MEMORY="8g"
+# Default settings
+MEMORY="12g"
+OUTPUT_DIR="$(pwd)"
+TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT  # Clean up temp dir on exit
 
-# Parse memory option if provided
-while getopts "m:" opt; do
+# Parse arguments
+while getopts "m:o:" opt; do
   case $opt in
     m)
       MEMORY="$OPTARG"
+      ;;
+    o)
+      # Convert relative path to absolute path
+      if [[ "$OPTARG" = /* ]]; then
+        # It's already an absolute path
+        OUTPUT_DIR="$OPTARG"
+      else
+        # Convert to absolute path
+        OUTPUT_DIR="$(pwd)/$OPTARG"
+      fi
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -19,31 +32,32 @@ done
 shift $((OPTIND-1))
 
 # Set up directories
-OUTPUT_DIR="$(pwd)/salsa-milk-output"
 CACHE_DIR="$HOME/.cache/salsa-milk"
-MEDIA_DIR="$(pwd)/salsa-milk-media"
 
-mkdir -p "$OUTPUT_DIR" "$CACHE_DIR" "$MEDIA_DIR"
-
-# Process command line arguments
-ARGS=()
+# Create only necessary directories
+mkdir -p "$OUTPUT_DIR" "$CACHE_DIR"
 
 # Exit if no arguments provided
 if [ $# -eq 0 ]; then
   echo "Error: No input files or URLs provided."
-  echo "Usage: $0 [-m MEMORY] input_file.mp4 [input_file2.mp4] [https://youtube.com/...]"
+  echo "Usage: $0 [-m MEMORY] [-o OUTPUT_DIR] input_file.mp4 [input_file2.mp4] [https://youtube.com/...]"
+  echo "  -m MEMORY     Set memory limit (default: 12g)"
+  echo "  -o OUTPUT_DIR Set output directory (default: current directory)"
   exit 1
 fi
 
-# Handle file paths - copy local files to media dir if needed
+# Process command line arguments
+ARGS=()
+
+# Handle file paths - copy local files to temp dir if needed
 for arg in "$@"; do
     if [[ "$arg" == http* ]]; then
         # It's a URL, pass directly
         ARGS+=("$arg")
     elif [[ -f "$arg" ]]; then
-        # It's a file, copy to media dir and reference by filename
+        # It's a file, copy to temp dir and reference by filename
         filename=$(basename "$arg")
-        cp "$arg" "$MEDIA_DIR/$filename"
+        cp "$arg" "$TEMP_DIR/$filename"
         ARGS+=("/media/$filename")
     else
         # Pass other arguments as-is
@@ -52,13 +66,19 @@ for arg in "$@"; do
 done
 
 echo "Starting salsa-milk with memory limit: $MEMORY"
+echo "Output will be saved to: $OUTPUT_DIR"
 
-# Run the container with appropriate volume mounts
+# Debug info
+echo "Using output directory: $OUTPUT_DIR (absolute path)"
+
+# Run the container with appropriate volume mounts, using temp directory for media
 podman run --rm \
     --memory="$MEMORY" \
-    -v "$MEDIA_DIR:/media" \
-    -v "$OUTPUT_DIR:/output" \
-    -v "$CACHE_DIR:/cache" \
+    --memory-swap="$MEMORY" \
+    -e PYTHONUNBUFFERED=1 \
+    -v "$TEMP_DIR:/media:z" \
+    -v "$OUTPUT_DIR:/output:z" \
+    -v "$CACHE_DIR:/cache:z" \
     salsa-milk "${ARGS[@]}"
 
 echo "Processing complete. Results are in $OUTPUT_DIR"

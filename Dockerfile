@@ -29,6 +29,10 @@ RUN mkdir -p /media /output
 # Copy application code
 COPY salsa-milk.py .
 
+# Environment variable to force immediate output
+ENV PYTHONUNBUFFERED=1
+ENV TORCH_HOME=/cache
+
 # Set volumes for persistence
 VOLUME ["/media", "/output", "/cache"]
 

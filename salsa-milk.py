@@ -7,16 +7,34 @@ import re
 import argparse
 import logging
 import time
+import shutil
 from pathlib import Path
 from tqdm import tqdm
 
-# Configure logging with immediate output
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler(stream=sys.stdout)]
 )
 logger = logging.getLogger('salsa-milk')
+
+def run_command(cmd):
+    """Run a command and return output"""
+    logger.info(f"Running: {' '.join(cmd)}")
+    try:
+        result = subprocess.run(
+            cmd, 
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+        print(result.stdout)
+        return result
+    except subprocess.CalledProcessError as e:
+        print(e.stdout)
+        raise
 
 def download_from_youtube(urls):
     """Download videos from YouTube URLs"""
@@ -41,7 +59,6 @@ def download_from_youtube(urls):
         elif "youtu.be/" in url:
             video_id = url.split("youtu.be/")[1].split("?")[0]
         else:
-            # Generate a timestamp-based ID if we can't extract one
             video_id = f"yt_{int(time.time())}"
         
         # Download video
@@ -49,7 +66,7 @@ def download_from_youtube(urls):
             video_output = f"/media/{video_id}.mp4"
             video_cmd = [
                 "yt-dlp",
-                "-f", "best",  # Get best format that includes video
+                "-f", "b",  # Best format
                 "--output", video_output,
                 "--no-check-certificate",
                 "--geo-bypass",
@@ -57,8 +74,7 @@ def download_from_youtube(urls):
             ]
             
             logger.info(f"Downloading video from: {url}")
-            # Use real-time output instead of capturing
-            subprocess.run(video_cmd, check=True, stdout=sys.stdout, stderr=sys.stderr)
+            subprocess.run(video_cmd, check=True)
             
             if os.path.exists(video_output):
                 logger.info(f"✅ Successfully downloaded {video_id}")
@@ -74,12 +90,8 @@ def process_files(input_files, model="htdemucs"):
     """Process media files to isolate vocals"""
     results = []
     
-    # Determine device 
-    import torch
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    logger.info(f"Using device: {device}")
-    
     # Create temporary directory
+    os.makedirs("/tmp/audio", exist_ok=True)
     os.makedirs("/tmp/demucs", exist_ok=True)
     
     for file_path in tqdm(input_files, desc="Processing files"):
@@ -91,24 +103,35 @@ def process_files(input_files, model="htdemucs"):
         # Check if it's a video file
         has_video = file_path.lower().endswith((".mp4", ".mov", ".avi", ".mkv", ".webm"))
         
-        # Run Demucs to extract vocals - with real-time output
-        demucs_cmd = [
-            "demucs",
-            "--two-stems", "vocals",
-            "-n", model,
-            "--device", device,
-            "-o", "/tmp/demucs",
-            file_path
-        ]
+        # Convert to WAV first (this helps with compatibility)
+        wav_path = f"/tmp/audio/{file_id}.wav"
         
         try:
-            # Point to cache location for models
-            env = os.environ.copy()
-            env["TORCH_HOME"] = "/cache"
+            # Convert to WAV
+            logger.info(f"Converting to WAV format...")
+            ffmpeg_convert_cmd = [
+                "ffmpeg", "-y",
+                "-i", file_path,
+                "-vn",  # No video
+                "-acodec", "pcm_s16le",  # PCM format
+                "-ar", "44100",  # 44.1kHz
+                "-ac", "2",  # Stereo
+                wav_path
+            ]
             
+            subprocess.run(ffmpeg_convert_cmd, check=True)
+            
+            # Run Demucs with minimal parameters
             logger.info(f"Running Demucs on {file_id}...")
-            # Use real-time output
-            subprocess.run(demucs_cmd, env=env, check=True, stdout=sys.stdout, stderr=sys.stderr)
+            demucs_cmd = [
+                "demucs",
+                "--two-stems", "vocals",
+                "-n", model,
+                "-o", "/tmp/demucs",
+                wav_path
+            ]
+            
+            subprocess.run(demucs_cmd, check=True)
             
             # Get path to extracted vocals
             vocals_path = f"/tmp/demucs/{model}/{file_id}/vocals.wav"
@@ -123,13 +146,12 @@ def process_files(input_files, model="htdemucs"):
                     logger.warning(f"⚠️ Could not find extracted vocals for {file_id}, skipping...")
                     continue
             
-            # Get file extension for output
+            # Create output with isolated vocals
             if has_video:
                 # Video files always output as MP4
                 output_ext = "mp4"
                 output_path = f"/output/{file_id}_vocals.{output_ext}"
                 
-                # Replace audio in original video
                 logger.info(f"Creating video with isolated vocals...")
                 ffmpeg_cmd = [
                     "ffmpeg", "-y",
@@ -146,7 +168,7 @@ def process_files(input_files, model="htdemucs"):
             else:
                 # For audio files, keep the original extension
                 original_ext = os.path.splitext(file_path)[1][1:].lower()
-                output_ext = original_ext if original_ext else "wav"
+                output_ext = original_ext if original_ext in ["mp3", "wav", "ogg", "m4a"] else "wav"
                 output_path = f"/output/{file_id}_vocals.{output_ext}"
                 
                 logger.info(f"Creating audio file with isolated vocals...")
@@ -168,9 +190,8 @@ def process_files(input_files, model="htdemucs"):
                     output_path
                 ]
             
-            logger.info(f"Running FFmpeg...")
-            # Use real-time output
-            subprocess.run(ffmpeg_cmd, check=True, stdout=sys.stdout, stderr=sys.stderr)
+            logger.info(f"Running FFmpeg for final output...")
+            subprocess.run(ffmpeg_cmd, check=True)
             
             # Add to results
             results.append({
@@ -180,6 +201,10 @@ def process_files(input_files, model="htdemucs"):
             })
             
             logger.info(f"✅ Successfully processed {file_id}")
+            
+            # Clean up temporary files
+            if os.path.exists(wav_path):
+                os.remove(wav_path)
             
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Error processing {file_id}: {str(e)}")
