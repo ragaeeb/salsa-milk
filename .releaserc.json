@@ -1,0 +1,11 @@
+{
+    "branches": ["main"],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      ["@semantic-release/exec", {
+        "prepareCmd": "sed -i 's/VERSION = \".*\"/VERSION = \"${nextRelease.version}\"/' salsa-milk.py"
+      }],
+      "@semantic-release/github"
+    ]
+  }

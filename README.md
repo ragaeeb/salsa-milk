@@ -1,66 +1,153 @@
-# salsa-milk
+# salsa-milk 🎵➡️🎤
 
 <div align="center">
   <img src="https://wakatime.com/badge/user/a0b906ce-b8e7-4463-8bce-383238df6d4b/project/34209350-45ec-493e-bf98-27ecff0b4caa.svg" />
   <a href="https://colab.research.google.com/github/ragaeeb/salsa-milk/blob/main/salsa-milk.ipynb" target="_blank"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/podman-v5.4.2-purple.svg" alt="Podman: v5.4.2" />
+  <img src="https://img.shields.io/badge/demucs-v4.0.1-orange.svg" alt="Demucs: v4.0.1" />
 </div>
 
-salsa-milk is an open-source tool that isolates vocals from music and video files using [Demucs](https://github.com/facebookresearch/demucs) AI technology. It's designed to be easy to use, with a focus on providing high-quality vocal isolation without requiring technical expertise.
+A containerized CLI tool that isolates vocals from media files and YouTube videos using [Demucs](https://github.com/facebookresearch/demucs) AI technology. Easily extract vocals from music videos or audio tracks with a single command.
 
-## Features
+## ✨ Features
 
 - **High-Quality Vocal Isolation**: Uses Demucs, a state-of-the-art audio source separation model
-- **Batch Processing**: Process multiple files at once
-- **Video Support**: Can handle both audio and video files, preserving video tracks
-- **Multiple Output Formats**: Get results as audio-only `WAV` files or video MP4 files
-- **Google Colab Integration**: Run without installing anything on your computer
+- **Containerized**: Runs in a Podman/Docker container with all dependencies included
+- **YouTube Support**: Process videos directly from YouTube URLs
+- **Local Media Support**: Process local audio and video files
+- **Preserve Video**: For video inputs, the video track is preserved with the isolated vocals
+- **Customizable Output**: Choose your output directory
+- **Memory Management**: Adjust memory allocation for larger files
 
-## Getting Started
+## 🚀 Installation
 
-### Using the Google Colab Notebook
+### Prerequisites
 
-The easiest way to use salsa-milk is through our Google Colab notebook:
+- Podman (v4.0+) or Docker
+- Bash-compatible shell
 
-1. Open the [salsa-milk Colab Notebook](https://colab.research.google.com/github/ragaeeb/salsa-milk/blob/main/salsa-milk.ipynb)
-2. Upload your audio/video files or provide YouTube URLs
-3. Run the processing cell
-4. Download your extracted vocals
+### macOS Installation
 
-### Processing YouTube Videos
+1. Install Podman using Homebrew:
 
-Due to YouTube's restrictions on direct downloads from Google Colab, the most reliable approach is:
+```bash
+brew install podman
+```
 
-1. Install yt-dlp: `pip install yt-dlp`
-2. Download videos locally: `yt-dlp -x --audio-format wav "YOUR_YOUTUBE_URL"`
-3. Upload the downloaded files to the Colab notebook
+2. Initialize and start the Podman machine:
 
-## Advanced Usage
+```bash
+podman machine init
+podman machine start
+```
 
-### Demucs Models
+3. Clone the repository:
 
-You can choose between different Demucs models:
+```bash
+git clone https://github.com/ragaeeb/salsa-milk.git
+cd salsa-milk
+```
 
-- `htdemucs`: General-purpose model (default)
+4. Build the container:
 
-### GPU Acceleration
+```bash
+./build.sh
+```
 
-If you're using the Colab notebook, you can enable GPU acceleration for faster processing:
+### Linux Installation
 
-1. Go to Runtime → Change runtime type
-2. Select `GPU` from the Hardware accelerator dropdown
-3. Click "Save"
+1. Install Podman (using your package manager):
 
-## Contributing
+For Ubuntu/Debian:
+```bash
+sudo apt-get update
+sudo apt-get install -y podman
+```
 
-Contributions are welcome! Please feel free to submit a pull request.
+For Fedora:
+```bash
+sudo dnf install -y podman
+```
 
-## License
+2. Clone the repository:
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+```bash
+git clone https://github.com/ragaeeb/salsa-milk.git
+cd salsa-milk
+```
 
-## Acknowledgments
+3. Build the container:
+
+```bash
+./build.sh
+```
+
+### Using Docker instead of Podman
+
+The installation works the same with Docker. Simply substitute `docker` for `podman` in the commands. Edit the `salsa-milk.sh` script to use Docker instead of Podman.
+
+## 🎮 Usage
+
+### Basic Usage
+
+Process a local video file:
+```bash
+./salsa-milk.sh video.mp4
+```
+
+Process a YouTube video:
+```bash
+./salsa-milk.sh https://www.youtube.com/watch?v=VIDEO_ID
+```
+
+Process multiple files:
+```bash
+./salsa-milk.sh video1.mp4 video2.mp4 https://www.youtube.com/watch?v=VIDEO_ID
+```
+
+### Options
+
+- `-m MEMORY`: Set memory limit (default: 12g)
+```bash
+./salsa-milk.sh -m 16g video.mp4
+```
+
+- `-o DIRECTORY`: Set output directory (default: current directory)
+```bash
+./salsa-milk.sh -o ~/vocals video.mp4
+```
+
+Combine options:
+```bash
+./salsa-milk.sh -m 16g -o ~/vocals video.mp4
+```
+
+### Rebuilding the Container
+
+If you need to rebuild the container (e.g., after updating the code):
+```bash
+./build.sh --clean
+```
+
+## 🔧 Technical Details
+
+- **Container Image**: Uses Python `3.13-slim` with necessary dependencies
+- **Caching**: Demucs models are cached in `~/.cache/salsa-milk` for faster processing
+- **Temporary Files**: All intermediate files are stored in temporary directories and cleaned up on exit
+- **Memory Usage**: Default memory allocation is `12GB`, can be adjusted with the `-m` option
+
+## 👥 Authors
+
+- Ragaeeb Haq - [GitHub Profile](https://github.com/ragaeeb)
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
 
 - [Demucs](https://github.com/facebookresearch/demucs) for the audio separation technology
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) for YouTube downloading capabilities
 - Inspired by [Tafrigh](https://github.com/ieasybooks/tafrigh), which was used as a template for the Google Colab notebook.
-- I overheard my daughters saying `Salsa Milk` in one of their pretend-play games. They then requested I use this name for my next project.
+- I overheard my daughters saying "Salsa Milk" in one of their pretend-play games. They then requested I use this name for my next project.

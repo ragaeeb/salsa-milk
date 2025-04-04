@@ -1,0 +1,16 @@
+name: Release
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Semantic Release
+        uses: semantic-release/semantic-release@v22
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
