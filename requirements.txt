@@ -1,5 +1,5 @@
-demucs>=4.0.0
-torch>=2.0.0
+demucs>=4.0.1
+torch>=2.6.0
 yt-dlp>=2025.03.31
 ffmpeg-python>=0.2.0
-tqdm>=4.64.1
+tqdm>=4.67.1
