@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Salsa Milk &mdash; Vocal Isolator</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        --background: #0f172a;
+        --card: rgba(15, 23, 42, 0.72);
+        --accent: #22d3ee;
+        --text: #e2e8f0;
+        --error: #f87171;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at top, #1e293b, var(--background));
+        color: var(--text);
+        padding: 2rem;
+      }
+
+      .card {
+        width: min(420px, 100%);
+        background: var(--card);
+        border-radius: 20px;
+        padding: 2.5rem 2rem;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(16px);
+      }
+
+      h1 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        font-size: 1.75rem;
+        text-align: center;
+        letter-spacing: 0.03em;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+      }
+
+      input[type="file"],
+      select {
+        width: 100%;
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.55);
+        color: inherit;
+      }
+
+      button {
+        background: linear-gradient(135deg, #0ea5e9, var(--accent));
+        color: #0f172a;
+        border: none;
+        border-radius: 12px;
+        padding: 0.85rem 1.2rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 150ms ease, box-shadow 150ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
+      }
+
+      .helper {
+        font-size: 0.85rem;
+        opacity: 0.75;
+        line-height: 1.5;
+      }
+
+      .flash {
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+      }
+
+      .flash.error {
+        background: rgba(248, 113, 113, 0.15);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        color: var(--error);
+      }
+
+      .flash.success {
+        background: rgba(45, 212, 191, 0.12);
+        border: 1px solid rgba(45, 212, 191, 0.4);
+        color: #5eead4;
+      }
+
+      .footer {
+        margin-top: 1.25rem;
+        font-size: 0.75rem;
+        opacity: 0.6;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Salsa Milk</h1>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for category, message in messages %}
+      <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+      <form method="post" enctype="multipart/form-data">
+        <div>
+          <label for="file">Upload audio or video</label>
+          <input type="file" id="file" name="file" accept="audio/*,video/*" required />
+          <p class="helper">
+            Files up to {{ (max_size / (1024 * 1024)) | round(0, 'floor') | int }} MB are
+            supported. The processed vocals will download automatically when ready.
+          </p>
+        </div>
+        <div>
+          <label for="model">Model</label>
+          <select id="model" name="model">
+            {% for model in models %}
+            <option value="{{ model }}">{{ model }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit">Remove Music</button>
+      </form>
+      <p class="footer">Powered by Demucs &middot; Audio stays private on this session.</p>
+    </div>
+  </body>
+</html>
