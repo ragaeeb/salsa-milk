@@ -25,4 +25,4 @@ RUN mkdir -p /media /output
 
 EXPOSE 8000
 
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "webapp:app"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "webapp:app"]

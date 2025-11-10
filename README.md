@@ -28,11 +28,15 @@ Salsa Milk isolates vocals from media files and YouTube videos using [Demucs](ht
 3. Use these service settings:
    - **Environment**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn webapp:app`
+   - **Start Command**: `gunicorn -c gunicorn.conf.py webapp:app`
    - **Instance Type**: Pick at least a starter instance with enough CPU/RAM for Demucs processing.
 4. (Optional) Set environment variables:
    - `MAX_CONTENT_LENGTH` &mdash; override the default 512MB upload limit (in bytes).
    - `SECRET_KEY` &mdash; customize the Flask session secret.
+   - `WEB_TIMEOUT` &mdash; Gunicorn hard timeout (default `600` seconds).
+   - `WEB_GRACEFUL_TIMEOUT` &mdash; graceful shutdown timeout (defaults to `WEB_TIMEOUT`).
+   - `WEB_CONCURRENCY` / `WEB_THREADS` &mdash; tweak worker and thread counts (defaults: `1`).
+   - `WEB_MAX_REQUESTS` &mdash; recycle workers after _n_ handled requests (disabled by default).
 5. Deploy. When the service is healthy, visit the generated URL to upload audio/video, remove the music, and download the isolated vocals.
 
 > ⚠️ Demucs is CPU intensive. Processing large videos can take several minutes depending on your Render instance size.
