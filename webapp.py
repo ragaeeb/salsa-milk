@@ -363,7 +363,7 @@ def _run_task(task_id: str) -> None:
             return
         current.status = "completed"
         current.progress = 100.0
-        current.message = "Processing complete! Preparing download..."
+        current.message = "Demucs separation complete! Preparing download..."
         current.output_path = output_path
         current.download_name = download_name
 

@@ -6,7 +6,9 @@ import logging
 import shutil
 import tempfile
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
+from string import Template
 from typing import Callable, List, Sequence
 
 from salsa_milk import __version__
@@ -30,6 +32,8 @@ ALLOWED_EXTENSIONS = {
     "webm",
 }
 AVAILABLE_MODELS = ["htdemucs"]
+
+ASSETS_DIR = Path(__file__).resolve().parent / "templates"
 
 
 @dataclass
@@ -99,6 +103,46 @@ def _save_uploaded_files(uploaded_files: Sequence[object], destination: Path) ->
 
 
 ProgressCallback = Callable[[str, float, str], None]
+
+
+@lru_cache(maxsize=None)
+def _read_asset(filename: str) -> str:
+    """Return the contents of a UI asset located in the templates directory."""
+
+    asset_path = ASSETS_DIR / filename
+    if not asset_path.is_file():  # pragma: no cover - defensive in case of packaging issues
+        raise FileNotFoundError(f"Missing Streamlit asset: {filename}")
+
+    return asset_path.read_text(encoding="utf-8")
+
+
+def _inject_css(st_module, filename: str) -> None:
+    """Add CSS styles to the Streamlit app from an external file."""
+
+    css = _read_asset(filename)
+    render = getattr(st_module, "markdown", None)
+    if render is not None:
+        render(f"<style>{css}</style>", unsafe_allow_html=True)
+        return
+
+    fallback = getattr(st_module, "write", None)
+    if fallback is not None:  # pragma: no cover - fallback for test doubles
+        fallback(css)
+
+
+def _inject_html(st_module, filename: str, **context: str) -> None:
+    """Render an HTML fragment using ``string.Template`` substitution."""
+
+    template = Template(_read_asset(filename))
+    html = template.safe_substitute(**context)
+    render = getattr(st_module, "markdown", None)
+    if render is not None:
+        render(html, unsafe_allow_html=True)
+        return
+
+    fallback = getattr(st_module, "write", None)
+    if fallback is not None:  # pragma: no cover - fallback for test doubles
+        fallback(html)
 
 
 def _process_submission(
@@ -226,133 +270,8 @@ def run(st_module=None) -> None:
         layout="centered",
     )
 
-    # Custom CSS
-    st.markdown("""
-        <style>
-        .main {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .stApp {
-            background: transparent;
-        }
-        
-        div[data-testid="stToolbar"] {
-            display: none;
-        }
-        
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            max-width: 800px;
-        }
-        
-        h1 {
-            color: white !important;
-            text-align: center;
-            font-size: 3rem !important;
-            font-weight: 800 !important;
-            margin-bottom: 0.5rem !important;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .subtitle {
-            color: rgba(255, 255, 255, 0.9);
-            text-align: center;
-            font-size: 1.1rem;
-            margin-bottom: 2rem;
-        }
-        
-        .stFileUploader, .stTextArea, .stSelectbox {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        
-        .stFileUploader:hover, .stTextArea:hover, .stSelectbox:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        }
-        
-        .stButton > button {
-            width: 100%;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 0.75rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .stButton > button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(245, 87, 108, 0.4);
-        }
-        
-        .stButton > button:active {
-            transform: translateY(0);
-        }
-        
-        .stDownloadButton > button {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 0.75rem 2rem;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 100%;
-        }
-        
-        .stDownloadButton > button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(79, 172, 254, 0.4);
-        }
-        
-        .footer {
-            text-align: center;
-            color: rgba(255, 255, 255, 0.8);
-            margin-top: 3rem;
-            padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .footer a {
-            color: white;
-            text-decoration: none;
-            font-weight: 600;
-            transition: opacity 0.2s ease;
-        }
-        
-        .footer a:hover {
-            opacity: 0.8;
-            text-decoration: underline;
-        }
-        
-        .stProgress > div > div {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        
-        .stAlert {
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h1>🥛 Salsa Milk</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>Professional Music Remover - Isolate Vocals with AI</p>", unsafe_allow_html=True)
+    _inject_css(st, "streamlit_styles.css")
+    _inject_html(st, "streamlit_header.html")
 
     uploaded_files = st.file_uploader(
         "📁 Choose media files",
@@ -409,20 +328,9 @@ def run(st_module=None) -> None:
                 data=result.data,
                 file_name=result.filename,
                 mime=result.mime,
-                key=f"download_{index}",
             )
 
-    # Footer
-    st.markdown(f"""
-        <div class='footer'>
-            <p>Version {__version__} • Powered by Demucs</p>
-            <p>Created by <strong>Ragaeeb Haq</strong> • 
-            <a href='https://github.com/ragaeeb/salsa-milk' target='_blank'>GitHub Repository</a></p>
-            <p style='font-size: 0.9rem; margin-top: 0.5rem;'>
-                Your audio stays private - all processing happens in this session
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
+    _inject_html(st, "streamlit_footer.html", version=__version__)
 
 
 if __name__ == "__main__":  # pragma: no cover - entry point for `streamlit run`
