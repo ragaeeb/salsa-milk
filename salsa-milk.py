@@ -8,6 +8,7 @@ import logging
 import sys
 from pathlib import Path
 
+from salsa_milk import get_version
 from salsa_milk_core import download_from_youtube, process_files
 
 
@@ -44,6 +45,12 @@ def parse_args() -> argparse.Namespace:
         "--download-dir",
         default="/media",
         help="Directory for downloaded YouTube media (default: /media).",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
+        help="Show the Salsa Milk version and exit.",
     )
     return parser.parse_args()
 
@@ -103,5 +110,5 @@ def main() -> None:
     logger.info("Output files saved to %s", output_dir.resolve())
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI entry point
     main()

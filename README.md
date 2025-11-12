@@ -14,6 +14,7 @@ Salsa Milk isolates vocals from media files and YouTube videos using [Demucs](ht
 
 - **High-Quality Vocal Isolation**: Uses Demucs, a state-of-the-art audio source separation model
 - **Web Interface**: Upload media in the browser and download the isolated vocals (Render ready)
+- **Streamlit UI**: Deploy the same workflow to [streamlit.app](https://streamlit.app) or run locally with `streamlit run streamlit_app.py`
 - **Containerized**: Runs in a Podman/Docker container with all dependencies included
 - **YouTube Support**: Process videos directly from YouTube URLs
 - **Local Media Support**: Process local audio and video files
@@ -51,6 +52,24 @@ python webapp.py
 ```
 
 The web app listens on `http://127.0.0.1:8000` by default. Use `PORT` to override the port, or `MAX_CONTENT_LENGTH` to change the upload cap.
+
+### Streamlit Deployment
+
+Salsa Milk ships with a dedicated Streamlit frontend (`streamlit_app.py`) so you can publish to [streamlit.app](https://streamlit.app).
+
+1. Push this repository to GitHub (or fork it) and create a new Streamlit Community Cloud app that points at `streamlit_app.py`.
+2. Upload the included `packages.txt` so the deployment can install `ffmpeg`.
+3. The default requirements already include `streamlit>=1.51.0`; no extra dependencies are needed.
+4. Once deployed, users can upload files, paste YouTube URLs, and download the extracted vocals directly from the Streamlit UI.
+
+To try it locally:
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+The page title shows the current Salsa Milk version so you can confirm the deployed build.
 
 ## 🚀 CLI Installation
 
@@ -132,6 +151,7 @@ If you need to rebuild the container (e.g., after updating the code):
 ## 🔧 Technical Details
 
 - **Container Image**: Uses Python `3.13-slim` with necessary dependencies
+- **Versioning**: `salsa_milk.get_version()` exposes the project version for the CLI, Streamlit, and Flask apps
 - **Caching**: Demucs models are cached in `~/.cache/salsa-milk` for faster processing
 - **Temporary Files**: All intermediate files are stored in temporary directories and cleaned up on exit
 - **Memory Usage**: Default memory allocation is `12GB`, can be adjusted with the `-m` option
