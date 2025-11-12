@@ -1,5 +1,7 @@
 # salsa-milk 🎵➡️🎤
 
+[Demo](https://salsa-milk.streamlit.app)
+
 <div align="center">
   <img src="https://wakatime.com/badge/user/a0b906ce-b8e7-4463-8bce-383238df6d4b/project/34209350-45ec-493e-bf98-27ecff0b4caa.svg" />
   <a href="https://colab.research.google.com/github/ragaeeb/salsa-milk/blob/main/salsa-milk.ipynb" target="_blank"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>
