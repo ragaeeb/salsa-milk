@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Callable, Iterable, List, Sequence
 
 from tqdm import tqdm
 
@@ -31,6 +31,7 @@ def process_files(
     temp_dir: os.PathLike[str] | str = "/tmp",
     output_dir: os.PathLike[str] | str = "/output",
     enable_progress: bool = False,
+    progress_callback: Callable[[str, float, str | None], None] | None = None,
 ) -> List[dict]:
     """Process media files to isolate vocals using Demucs."""
 
@@ -57,14 +58,24 @@ def process_files(
 
     results: List[dict] = []
 
-    for file_path in files_iterable:
+    for index, file_path in enumerate(files_iterable):
         logger.info("Processing %s", file_path.name)
         file_id = file_path.stem
         has_video = file_path.suffix.lower() in {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
         wav_path = temp_audio_dir / f"{file_id}.wav"
 
+        per_file_start = index / len(path_inputs)
+        per_file_span = 1.0 / len(path_inputs)
+
+        def emit(stage: str, fraction: float, message: str | None = None) -> None:
+            if progress_callback is None:
+                return
+            bounded = max(0.0, min(1.0, per_file_start + per_file_span * fraction))
+            progress_callback(stage, bounded, message)
+
         try:
+            emit("prepare", 0.02, f"Preparing {file_path.name}")
             logger.info("Converting %s to WAV", file_path.name)
             ffmpeg_convert_cmd = [
                 "ffmpeg",
@@ -81,6 +92,7 @@ def process_files(
                 str(wav_path),
             ]
             subprocess.run(ffmpeg_convert_cmd, check=True)
+            emit("convert", 0.18, f"Converted {file_path.name} to WAV")
 
             logger.info("Running Demucs (%s) on %s", model, file_path.name)
             demucs_cmd = [
@@ -93,7 +105,42 @@ def process_files(
                 str(demucs_root),
                 str(wav_path),
             ]
-            subprocess.run(demucs_cmd, check=True)
+            emit("demucs", 0.22, f"Starting Demucs for {file_path.name}")
+
+            demucs_proc = subprocess.Popen(
+                demucs_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+
+            demucs_stderr = demucs_proc.stderr
+            if demucs_stderr is not None:
+                for raw_line in iter(demucs_stderr.readline, ""):
+                    if not raw_line:
+                        break
+                    line = raw_line.strip()
+                    if line:
+                        logger.info("demucs: %s", line)
+                    match = re.search(r"(\d{1,3})%", raw_line)
+                    if match:
+                        percent = min(int(match.group(1)), 100)
+                        demucs_fraction = 0.22 + 0.6 * (percent / 100)
+                        emit(
+                            "demucs",
+                            demucs_fraction,
+                            f"Demucs {percent}% for {file_path.name}",
+                        )
+
+            if demucs_proc.stdout is not None:
+                demucs_proc.stdout.close()
+
+            return_code = demucs_proc.wait()
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, demucs_cmd)
+
+            emit("demucs", 0.82, f"Demucs complete for {file_path.name}")
 
             vocals_path = demucs_root / model / file_id / "vocals.wav"
 
@@ -157,15 +204,18 @@ def process_files(
 
             logger.info("Writing final output to %s", output_path)
             subprocess.run(ffmpeg_cmd, check=True)
+            emit("mux", 0.95, f"Writing output for {file_path.name}")
 
             results.append({
                 "input": str(file_path),
                 "output": str(output_path),
                 "id": file_id,
             })
+            emit("file_complete", 1.0, f"Finished {file_path.name}")
 
         except subprocess.CalledProcessError as exc:
             logger.error("Processing failed for %s: %s", file_id, exc)
+            emit("error", per_file_span, f"Processing failed for {file_path.name}")
         finally:
             if wav_path.exists():
                 wav_path.unlink()
@@ -173,6 +223,9 @@ def process_files(
             demucs_candidate = demucs_root / model / file_id
             if demucs_candidate.exists():
                 shutil.rmtree(demucs_candidate, ignore_errors=True)
+
+    if progress_callback is not None:
+        progress_callback("complete", 1.0, "All files processed.")
 
     return results
 

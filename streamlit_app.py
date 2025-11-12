@@ -133,22 +133,28 @@ def _process_submission(
             raise ValueError("No valid media was provided for processing.")
 
         notify(
-            "processing",
-            0.6,
+            "processing_start",
+            0.35,
             f"Running Demucs ({model}) on {len(all_inputs)} file(s)...",
         )
+
+        def bridge(stage: str, fraction: float, message: str | None) -> None:
+            scaled = 0.35 + 0.5 * min(max(fraction, 0.0), 1.0)
+            notify(stage, scaled, message or f"Processing ({stage})...")
+
         results = process_func(
             all_inputs,
             model=model,
             temp_dir=temp_dir,
             output_dir=output_dir,
             enable_progress=False,
+            progress_callback=bridge,
         )
 
         if not results:
             raise RuntimeError("Processing completed but no outputs were produced.")
 
-        notify("packaging", 0.85, "Packaging results for download...")
+        notify("packaging", 0.92, "Packaging results for download...")
         packaged: List[DownloadableResult] = []
         for result in results:
             output_path = Path(result["output"])

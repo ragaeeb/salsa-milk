@@ -112,6 +112,11 @@ def test_process_submission_success(tmp_path):
     def fake_process(paths, **kwargs):
         output = Path(kwargs["output_dir"]) / "result.wav"
         output.write_bytes(b"result")
+        callback = kwargs.get("progress_callback")
+        if callback:
+            callback("prepare", 0.1, "prepare")
+            callback("demucs", 0.5, "demucs")
+            callback("complete", 1.0, "done")
         return [{"output": str(output)}]
 
     def fake_download(urls, download_dir):
@@ -141,6 +146,11 @@ def test_process_submission_reports_progress(tmp_path):
     def fake_process(paths, **kwargs):
         output = Path(kwargs["output_dir"]) / "result.wav"
         output.write_bytes(b"result")
+        callback = kwargs.get("progress_callback")
+        if callback:
+            callback("prepare", 0.1, "prepare")
+            callback("demucs", 0.5, "demucs")
+            callback("complete", 1.0, "done")
         return [{"output": str(output)}]
 
     streamlit_app._process_submission(
