@@ -30,7 +30,7 @@ Salsa Milk isolates vocals from media files and YouTube videos using [Demucs](ht
 2. Create a new **Web Service** on [Render](https://render.com/) and connect it to your fork.
 3. Use these service settings:
    - **Environment**: Python 3
-   - **Build Command**: `pip install -r requirements.txt`
+   - **Build Command**: `curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="$HOME/.local/bin:$PATH" && uv pip install --system -r requirements.txt`
    - **Start Command**: `gunicorn -c gunicorn.conf.py webapp:app`
    - **Instance Type**: Pick at least a starter instance with enough CPU/RAM for Demucs processing.
 4. (Optional) Set environment variables:
@@ -46,10 +46,12 @@ Salsa Milk isolates vocals from media files and YouTube videos using [Demucs](ht
 
 ### Local Web Development
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) if it's not already on your system, then run:
+
 ```bash
-python -m venv .venv
+uv venv
 source .venv/bin/activate
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 python webapp.py
 ```
 
@@ -67,11 +69,29 @@ Salsa Milk ships with a dedicated Streamlit frontend (`streamlit_app.py`) so you
 To try it locally:
 
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
 The page title shows the current Salsa Milk version so you can confirm the deployed build.
+
+## 🧪 Testing
+
+Create a virtual environment, activate it, then install the runtime and developer dependencies:
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements_dev.txt
+```
+
+With the environment ready, you can run whichever slice of the test suite you need:
+
+- **All tests** (unit + integration): `pytest`
+- **Unit tests only**: `pytest -m "not integration"`
+- **Integration tests only**: `pytest -m integration`
+
+The integration tests execute the full Demucs pipeline, so expect them to take longer than the unit suite.
 
 ## 🧰 Running the CLI Locally (No Containers)
 
@@ -96,10 +116,9 @@ sudo apt-get install -y ffmpeg python3 python3-venv
 ### 2. Create and Populate a Virtual Environment
 
 ```bash
-python3 -m venv .venv
+uv venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### 3. Run the CLI Script

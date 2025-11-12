@@ -38,6 +38,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--strict-markers"
+markers = [
+    "integration: marks tests that exercise the full pipeline and require optional dependencies",
+]
 
 [tool.ruff]
 line-length = 100
