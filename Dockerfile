@@ -1,40 +1,28 @@
 FROM python:3.13-slim
 
-# Install FFmpeg and other system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ffmpeg \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+ENV PYTHONUNBUFFERED=1 \
+    TORCH_HOME=/cache \
+    PORT=8000
 
-# Create app directory
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
+COPY requirements.txt ./
 
-# Upgrade pip first
-RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Pre-download Demucs models
 RUN mkdir -p /cache && \
     TORCH_HOME=/cache python -c "from demucs.pretrained import get_model; get_model('htdemucs')"
 
-# Create directories
+COPY . .
+
 RUN mkdir -p /media /output
 
-# Copy application code
-COPY salsa-milk.py .
+EXPOSE 8000
 
-# Environment variable to force immediate output
-ENV PYTHONUNBUFFERED=1
-ENV TORCH_HOME=/cache
-
-# Set volumes for persistence
-VOLUME ["/media", "/output", "/cache"]
-
-# Set entrypoint
-ENTRYPOINT ["python", "salsa-milk.py"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "webapp:app"]

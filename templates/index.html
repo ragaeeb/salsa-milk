@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Salsa Milk &mdash; Vocal Isolator</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        --background: #0f172a;
+        --card: rgba(15, 23, 42, 0.72);
+        --accent: #22d3ee;
+        --text: #e2e8f0;
+        --error: #f87171;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at top, #1e293b, var(--background));
+        color: var(--text);
+        padding: 2rem;
+      }
+
+      .card {
+        width: min(420px, 100%);
+        background: var(--card);
+        border-radius: 20px;
+        padding: 2.5rem 2rem;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(16px);
+      }
+
+      h1 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        font-size: 1.75rem;
+        text-align: center;
+        letter-spacing: 0.03em;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+      }
+
+      input[type="file"],
+      select {
+        width: 100%;
+        padding: 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.55);
+        color: inherit;
+      }
+
+      button {
+        background: linear-gradient(135deg, #0ea5e9, var(--accent));
+        color: #0f172a;
+        border: none;
+        border-radius: 12px;
+        padding: 0.85rem 1.2rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 150ms ease, box-shadow 150ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
+      }
+
+      .helper {
+        font-size: 0.85rem;
+        opacity: 0.75;
+        line-height: 1.5;
+      }
+
+      .flash {
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+      }
+
+      .flash.error {
+        background: rgba(248, 113, 113, 0.15);
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        color: var(--error);
+      }
+
+      .flash.success {
+        background: rgba(45, 212, 191, 0.12);
+        border: 1px solid rgba(45, 212, 191, 0.4);
+        color: #5eead4;
+      }
+
+      .footer {
+        margin-top: 1.25rem;
+        font-size: 0.75rem;
+        opacity: 0.6;
+        text-align: center;
+      }
+
+      #processing-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        z-index: 10;
+      }
+
+      #processing-overlay[hidden] {
+        display: none;
+      }
+
+      .overlay-card {
+        width: min(360px, 100%);
+        background: var(--card);
+        border-radius: 16px;
+        padding: 2rem 1.75rem;
+        box-shadow: 0 16px 50px rgba(15, 23, 42, 0.6);
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .spinner {
+        margin: 0 auto;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 4px solid rgba(148, 163, 184, 0.35);
+        border-top-color: var(--accent);
+        animation: spin 900ms linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .progress-track {
+        position: relative;
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.25);
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        --progress: 0;
+        position: absolute;
+        inset: 0;
+        width: calc(var(--progress) * 1%);
+        background: linear-gradient(135deg, var(--accent), #38bdf8);
+        transition: width 220ms ease;
+      }
+
+      .progress-fill.indeterminate {
+        width: 45%;
+        animation: progress-indeterminate 1.4s ease-in-out infinite;
+      }
+
+      @keyframes progress-indeterminate {
+        0% {
+          transform: translateX(-100%);
+        }
+        50% {
+          transform: translateX(25%);
+        }
+        100% {
+          transform: translateX(120%);
+        }
+      }
+
+      .overlay-status {
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .overlay-helper {
+        font-size: 0.82rem;
+        opacity: 0.7;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Salsa Milk</h1>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for category, message in messages %}
+      <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+      <form method="post" action="/api/process" enctype="multipart/form-data">
+        <div>
+          <label for="file">Upload audio or video</label>
+          <input type="file" id="file" name="file" accept="audio/*,video/*" required />
+          <p class="helper">
+            Files up to {{ (max_size / (1024 * 1024)) | round(0, 'floor') | int }} MB are
+            supported. The processed vocals will download automatically when ready.
+          </p>
+        </div>
+        <div>
+          <label for="model">Model</label>
+          <select id="model" name="model">
+            {% for model in models %}
+            <option value="{{ model }}">{{ model }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit">Remove Music</button>
+      </form>
+      <p class="footer">Powered by Demucs &middot; Audio stays private on this session.</p>
+    </div>
+    <div id="processing-overlay" hidden>
+      <div class="overlay-card">
+        <div class="spinner" role="status" aria-live="polite"></div>
+        <p class="overlay-status" id="overlay-status">Preparing upload...</p>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill indeterminate" id="progress-fill"></div>
+        </div>
+        <p class="overlay-helper">
+          Keep this tab open. Processing large videos can take several minutes.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      const form = document.querySelector("form");
+      const overlay = document.getElementById("processing-overlay");
+      const overlayStatus = document.getElementById("overlay-status");
+      const progressFill = document.getElementById("progress-fill");
+      const submitButton = form.querySelector("button[type='submit']");
+
+      let pollHandle = null;
+
+      function setStatus(message) {
+        overlayStatus.textContent = message;
+      }
+
+      function setProgress(value, { indeterminate = false } = {}) {
+        if (indeterminate) {
+          progressFill.classList.add("indeterminate");
+          progressFill.style.removeProperty("--progress");
+        } else {
+          progressFill.classList.remove("indeterminate");
+          const safeValue = Math.max(0, Math.min(100, value));
+          progressFill.style.setProperty("--progress", safeValue);
+        }
+      }
+
+      function clearPoll() {
+        if (pollHandle !== null) {
+          clearInterval(pollHandle);
+          pollHandle = null;
+        }
+      }
+
+      function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function downloadResult(taskId) {
+        const response = await fetch(`/api/download/${taskId}`, {
+          credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+          throw new Error("Download failed");
+        }
+
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = filenameMatch ? filenameMatch[1] : "salsa-milk-output.wav";
+        const blob = await response.blob();
+        triggerDownload(blob, filename);
+      }
+
+      async function pollProgress(taskId) {
+        try {
+          const response = await fetch(`/api/progress/${taskId}`, {
+            cache: "no-store",
+            credentials: "same-origin",
+          });
+
+          if (!response.ok) {
+            throw new Error("Progress request failed");
+          }
+
+          const data = await response.json();
+          const progress = Number(data.progress) || 0;
+          const message = data.message || "Processing...";
+
+          setProgress(progress, { indeterminate: false });
+          setStatus(message);
+
+          if (data.status === "error") {
+            clearPoll();
+            submitButton.disabled = false;
+            setTimeout(() => {
+              overlay.hidden = true;
+            }, 1200);
+            return;
+          }
+
+          if (data.download_ready) {
+            clearPoll();
+            setProgress(100, { indeterminate: false });
+            setStatus("Preparing download...");
+            await downloadResult(taskId);
+            submitButton.disabled = false;
+            setTimeout(() => {
+              overlay.hidden = true;
+            }, 1400);
+          }
+        } catch (error) {
+          console.error(error);
+          clearPoll();
+          setStatus("Something went wrong. Please try again.");
+          submitButton.disabled = false;
+          setTimeout(() => {
+            overlay.hidden = true;
+          }, 2000);
+        }
+      }
+
+      function uploadFormData(formData) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", form.action);
+          xhr.responseType = "json";
+
+          xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable) {
+              setProgress(10, { indeterminate: true });
+              setStatus("Uploading file...");
+              return;
+            }
+
+            const percent = (event.loaded / event.total) * 15;
+            setProgress(Math.min(15, percent), { indeterminate: false });
+            setStatus(`Uploading file... ${Math.round((event.loaded / event.total) * 100)}%`);
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300 && xhr.response?.task_id) {
+              resolve(xhr.response.task_id);
+            } else {
+              const message = xhr.response?.message || "Upload failed";
+              reject(new Error(message));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("Network error"));
+          xhr.send(formData);
+        });
+      }
+
+      async function handleSubmit(event) {
+        event.preventDefault();
+        if (!form.reportValidity()) {
+          return;
+        }
+
+        overlay.hidden = false;
+        submitButton.disabled = true;
+        setStatus("Uploading file...");
+        setProgress(5, { indeterminate: true });
+
+        const formData = new FormData(form);
+
+        try {
+          const taskId = await uploadFormData(formData);
+          setProgress(20, { indeterminate: false });
+          setStatus("Processing audio...");
+          pollHandle = setInterval(() => {
+            pollProgress(taskId);
+          }, 1500);
+          await pollProgress(taskId);
+        } catch (error) {
+          console.error(error);
+          clearPoll();
+          submitButton.disabled = false;
+          setStatus(error?.message || "Something went wrong. Please try again.");
+          setTimeout(() => {
+            overlay.hidden = true;
+          }, 2000);
+        }
+      }
+
+      form.addEventListener("submit", handleSubmit);
+    </script>
+  </body>
+</html>
