@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Sequence
+from typing import Callable, List, Sequence
 
 from salsa_milk import __version__
 from salsa_milk_core import download_from_youtube, process_files
@@ -82,6 +82,9 @@ def _save_uploaded_files(uploaded_files: Sequence[object], destination: Path) ->
     return saved_paths
 
 
+ProgressCallback = Callable[[str, float, str], None]
+
+
 def _process_submission(
     uploaded_files: Sequence[object],
     youtube_urls: str,
@@ -90,12 +93,20 @@ def _process_submission(
     process_func=process_files,
     download_func=download_from_youtube,
     workdir_factory=tempfile.mkdtemp,
+    progress_callback: ProgressCallback | None = None,
 ) -> List[DownloadableResult]:
     """Coordinate downloads, processing, and packaging of results."""
 
     urls = youtube_urls.strip()
     if not uploaded_files and not urls:
         raise ValueError("Provide at least one uploaded file or YouTube URL.")
+
+    def notify(stage: str, fraction: float, message: str) -> None:
+        if progress_callback is None:
+            return
+
+        bounded = min(max(fraction, 0.0), 1.0)
+        progress_callback(stage, bounded, message)
 
     work_dir = Path(workdir_factory(prefix="salsa-milk-streamlit-"))
     uploads_dir = work_dir / "uploads"
@@ -109,13 +120,23 @@ def _process_submission(
         temp_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        notify("prepare", 0.05, "Preparing workspace...")
+
         local_paths = _save_uploaded_files(uploaded_files, uploads_dir)
+        notify("uploads", 0.2, f"Saved {len(local_paths)} uploaded file(s)")
+
         downloaded_paths = download_func(urls, download_dir=downloads_dir)
+        notify("downloads", 0.35, f"Fetched {len(downloaded_paths)} YouTube item(s)")
         all_inputs: List[str] = local_paths + downloaded_paths
 
         if not all_inputs:
             raise ValueError("No valid media was provided for processing.")
 
+        notify(
+            "processing",
+            0.6,
+            f"Running Demucs ({model}) on {len(all_inputs)} file(s)...",
+        )
         results = process_func(
             all_inputs,
             model=model,
@@ -127,6 +148,7 @@ def _process_submission(
         if not results:
             raise RuntimeError("Processing completed but no outputs were produced.")
 
+        notify("packaging", 0.85, "Packaging results for download...")
         packaged: List[DownloadableResult] = []
         for result in results:
             output_path = Path(result["output"])
@@ -139,6 +161,7 @@ def _process_submission(
                 )
             )
 
+        notify("complete", 1.0, "Processing complete!")
         return packaged
 
     finally:
@@ -177,17 +200,30 @@ def run(st_module=None) -> None:
     process_clicked = st.button("Process Media")
 
     if process_clicked:
+        progress_bar = st.progress(0.0, text="Preparing to process media...")
+
+        def update_progress(_stage: str, fraction: float, message: str) -> None:
+            progress_bar.progress(fraction, text=message)
+
         with st.spinner("Processing media, this may take a few minutes..."):
             try:
-                results = _process_submission(uploaded_files or [], youtube_urls, model)
+                results = _process_submission(
+                    uploaded_files or [],
+                    youtube_urls,
+                    model,
+                    progress_callback=update_progress,
+                )
             except ValueError as exc:
                 st.warning(str(exc))
+                progress_bar.progress(0.0, text="Waiting for inputs...")
                 return
             except Exception as exc:  # pragma: no cover - surfaced through UI
                 logger.exception("Streamlit processing failed: %s", exc)
                 st.error("Processing failed. Please try again.")
+                progress_bar.progress(0.0, text="Processing failed. Please retry.")
                 return
 
+        progress_bar.progress(1.0, text="Processing complete!")
         st.success("Processing complete!")
         for index, result in enumerate(results, start=1):
             st.download_button(

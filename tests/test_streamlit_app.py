@@ -25,6 +25,7 @@ class FakeStreamlit:
         self.error_messages = []
         self.success_messages = []
         self.spinner_messages = []
+        self.progress_updates = []
 
     def set_page_config(self, **_kwargs):
         pass
@@ -61,6 +62,17 @@ class FakeStreamlit:
                 return False
 
         return Dummy()
+
+    def progress(self, value: float, text: str = ""):
+        self.progress_updates.append((value, text))
+
+        parent = self
+
+        class DummyProgress:
+            def progress(self_inner, new_value: float, text: str = ""):
+                parent.progress_updates.append((new_value, text))
+
+        return DummyProgress()
 
     def warning(self, message: str):
         self.warning_messages.append(message)
@@ -120,6 +132,32 @@ def test_process_submission_success(tmp_path):
     assert results[0].filename == "result.wav"
     assert results[0].data == b"result"
     assert not Path(tmp_path / "workdir").exists()
+
+
+def test_process_submission_reports_progress(tmp_path):
+    upload = FakeUpload("track.mp3", b"abc")
+    notifications = []
+
+    def fake_process(paths, **kwargs):
+        output = Path(kwargs["output_dir"]) / "result.wav"
+        output.write_bytes(b"result")
+        return [{"output": str(output)}]
+
+    streamlit_app._process_submission(
+        [upload],
+        "",
+        "htdemucs",
+        process_func=fake_process,
+        download_func=lambda *_args, **_kwargs: [],
+        workdir_factory=lambda prefix: str(tmp_path / "progress"),
+        progress_callback=lambda stage, fraction, message: notifications.append(
+            (stage, fraction, message)
+        ),
+    )
+
+    assert any(stage == "prepare" for stage, _, _ in notifications)
+    assert notifications[-1][0] == "complete"
+    assert notifications[-1][1] == pytest.approx(1.0)
 
 
 def test_process_submission_without_inputs(tmp_path):
@@ -184,6 +222,7 @@ def test_run_streamlit_flow(monkeypatch):
 
     assert fake_st.downloads
     assert fake_st.success_messages
+    assert fake_st.progress_updates
 
 
 def test_run_streamlit_handles_value_error(monkeypatch):
@@ -198,6 +237,7 @@ def test_run_streamlit_handles_value_error(monkeypatch):
 
     assert fake_st.warning_messages == ["no input"]
     assert not fake_st.downloads
+    assert fake_st.progress_updates[0][1] == "Preparing to process media..."
 
 
 def test_run_imports_streamlit_module(monkeypatch):
