@@ -19,8 +19,14 @@ logger = logging.getLogger("salsa-milk")
 
 
 def _ensure_path(value: os.PathLike[str] | str) -> Path:
-    """Return a Path instance for the provided value."""
-
+    """Return a Path instance for the provided value.
+    
+    Args:
+        value: Path-like object or string to convert.
+        
+    Returns:
+        Path instance of the input value.
+    """
     return value if isinstance(value, Path) else Path(value)
 
 
@@ -33,8 +39,39 @@ def process_files(
     enable_progress: bool = False,
     progress_callback: Callable[[str, float, str | None], None] | None = None,
 ) -> List[dict]:
-    """Process media files to isolate vocals using Demucs."""
-
+    """Process media files to isolate vocals using Demucs.
+    
+    This function handles the complete pipeline for vocal isolation:
+    1. Converts input media to WAV format
+    2. Runs Demucs AI model for source separation
+    3. Extracts vocals track
+    4. Re-encodes to appropriate output format (preserving video if present)
+    
+    Args:
+        input_files: Sequence of file paths to process.
+        model: Demucs model name to use (default: "htdemucs").
+        temp_dir: Directory for temporary files (default: "/tmp").
+        output_dir: Directory for output files (default: "/output").
+        enable_progress: Whether to show progress bar for multiple files (default: False).
+        progress_callback: Optional callback function for progress updates.
+            Called with (stage: str, fraction: float, message: str | None).
+            
+    Returns:
+        List of dictionaries containing processing results. Each dict has:
+            - input: Original input file path
+            - output: Output file path with isolated vocals
+            - id: File identifier (stem name)
+            
+    Example:
+        >>> results = process_files(
+        ...     ["song.mp3"],
+        ...     model="htdemucs",
+        ...     temp_dir="/tmp/work",
+        ...     output_dir="/output"
+        ... )
+        >>> print(results[0]["output"])
+        /output/song_vocals.mp3
+    """
     if not input_files:
         return []
 
@@ -69,6 +106,13 @@ def process_files(
         per_file_span = 1.0 / len(path_inputs)
 
         def emit(stage: str, fraction: float, message: str | None = None) -> None:
+            """Emit progress update through callback if provided.
+            
+            Args:
+                stage: Processing stage identifier.
+                fraction: Progress fraction for this file (0.0 to 1.0).
+                message: Optional progress message.
+            """
             if progress_callback is None:
                 return
             bounded = max(0.0, min(1.0, per_file_start + per_file_span * fraction))
@@ -235,8 +279,31 @@ def download_from_youtube(
     *,
     download_dir: os.PathLike[str] | str = "/media",
 ) -> List[str]:
-    """Download videos from YouTube URLs and return local file paths."""
-
+    """Download videos from YouTube URLs and return local file paths.
+    
+    Uses yt-dlp to download videos in best quality format. Handles both
+    standard YouTube URLs and youtu.be short links. Falls back to timestamp-based
+    naming for unrecognized URL patterns.
+    
+    Args:
+        urls: Sequence of YouTube URLs or whitespace-separated string of URLs.
+        download_dir: Directory to save downloaded videos (default: "/media").
+        
+    Returns:
+        List of local file paths for successfully downloaded videos.
+        
+    Example:
+        >>> paths = download_from_youtube(
+        ...     ["https://www.youtube.com/watch?v=abc123"],
+        ...     download_dir="/downloads"
+        ... )
+        >>> print(paths)
+        ['/downloads/abc123.mp4']
+        
+    Note:
+        Failed downloads are logged but do not raise exceptions.
+        The function continues processing remaining URLs.
+    """
     if not urls:
         return []
 
@@ -287,4 +354,3 @@ def download_from_youtube(
             logger.error("Download reported success but file missing: %s", output_path)
 
     return downloaded
-

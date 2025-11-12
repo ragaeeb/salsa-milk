@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Flask web interface for Salsa Milk."""
+"""Flask web interface for Salsa Milk.
+
+This module provides a web-based interface for processing audio and video files
+to isolate vocals. It handles file uploads, asynchronous processing, progress
+tracking, and download delivery.
+"""
 
 from __future__ import annotations
 
@@ -40,8 +45,26 @@ AVAILABLE_MODELS = ["htdemucs"]
 
 @dataclass
 class ProcessingTask:
-    """State machine for an in-flight processing request."""
-
+    """State machine for an in-flight processing request.
+    
+    Tracks the complete lifecycle of a file processing job from upload
+    through processing to download readiness.
+    
+    Attributes:
+        id: Unique task identifier (UUID hex).
+        work_dir: Temporary working directory for this task.
+        saved_path: Path to uploaded input file.
+        model: Demucs model name to use.
+        temp_dir: Temporary directory for intermediate files.
+        output_dir: Directory for final output files.
+        status: Current task status ("queued", "running", "completed", "error").
+        progress: Progress percentage (0.0 to 100.0).
+        message: Human-readable status message.
+        output_path: Path to final output file (set on completion).
+        download_name: Suggested filename for download.
+        error: Error message if processing failed.
+        created_at: Timestamp when task was created.
+    """
     id: str
     work_dir: Path
     saved_path: Path
@@ -62,14 +85,26 @@ _TASK_LOCK = threading.Lock()
 
 
 def allowed_file(filename: str) -> bool:
-    """Check if a filename has an allowed extension."""
-
+    """Check if a filename has an allowed extension.
+    
+    Args:
+        filename: Name of file to check.
+        
+    Returns:
+        True if file extension is in ALLOWED_EXTENSIONS, False otherwise.
+    """
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def create_app() -> Flask:
-    """Create and configure the Flask application."""
-
+    """Create and configure the Flask application.
+    
+    Sets up routes, error handlers, and logging configuration.
+    Configures maximum upload size from environment variable.
+    
+    Returns:
+        Configured Flask application instance.
+    """
     app = Flask(__name__)
     app.secret_key = os.environ.get("SECRET_KEY", "salsa-milk-secret")
     app.config["MAX_CONTENT_LENGTH"] = int(
@@ -83,6 +118,11 @@ def create_app() -> Flask:
 
     @app.route("/", methods=["GET"])
     def index():
+        """Render the main upload form page.
+        
+        Returns:
+            Rendered HTML template with upload form.
+        """
         return render_template(
             "index.html",
             models=AVAILABLE_MODELS,
@@ -91,6 +131,15 @@ def create_app() -> Flask:
 
     @app.post("/api/process")
     def api_process():
+        """Handle file upload and initiate async processing.
+        
+        Validates uploaded file, creates processing task, and starts
+        background thread for processing.
+        
+        Returns:
+            JSON response with task_id and status (200 on success).
+            JSON error response (400) if validation fails.
+        """
         upload = request.files.get("file")
         if not upload or upload.filename == "":
             return jsonify({"error": "no_file", "message": "Please choose a media file to upload."}), 400
@@ -145,6 +194,17 @@ def create_app() -> Flask:
 
     @app.get("/api/progress/<task_id>")
     def api_progress(task_id: str):
+        """Get current progress for a processing task.
+        
+        Args:
+            task_id: Unique task identifier.
+            
+        Returns:
+            JSON response with status, progress, message, and download_ready flag.
+            
+        Raises:
+            NotFound: If task_id does not exist.
+        """
         with _TASK_LOCK:
             task = _TASKS.get(task_id)
 
@@ -162,6 +222,19 @@ def create_app() -> Flask:
 
     @app.get("/api/download/<task_id>")
     def api_download(task_id: str):
+        """Download the processed output file for a task.
+        
+        Automatically cleans up task data after download completion.
+        
+        Args:
+            task_id: Unique task identifier.
+            
+        Returns:
+            File download response with processed audio/video.
+            
+        Raises:
+            NotFound: If task doesn't exist or output file is not available.
+        """
         with _TASK_LOCK:
             task = _TASKS.get(task_id)
 
@@ -176,12 +249,21 @@ def create_app() -> Flask:
 
         @response.call_on_close
         def _cleanup_task() -> None:
+            """Clean up task data after download completes."""
             _finalize_task(task_id)
 
         return response
 
     @app.errorhandler(413)
     def request_entity_too_large(_error):
+        """Handle file too large errors.
+        
+        Args:
+            _error: Exception instance (unused).
+            
+        Returns:
+            Redirect to index with error flash message.
+        """
         flash("The uploaded file is too large for the server to process.", "error")
         return redirect(url_for("index"))
 
@@ -192,6 +274,15 @@ app = create_app()
 
 
 def _default_message(stage: str, file_name: str) -> str:
+    """Generate default progress message for a processing stage.
+    
+    Args:
+        stage: Processing stage identifier.
+        file_name: Name of file being processed.
+        
+    Returns:
+        Human-readable progress message.
+    """
     stage_messages = {
         "prepare": f"Preparing {file_name}...",
         "convert": f"Converting {file_name}...",
@@ -203,6 +294,14 @@ def _default_message(stage: str, file_name: str) -> str:
 
 
 def _run_task(task_id: str) -> None:
+    """Execute processing for a task in background thread.
+    
+    Updates task progress through callbacks and handles errors.
+    Sets final status to "completed" on success or "error" on failure.
+    
+    Args:
+        task_id: Unique task identifier.
+    """
     with _TASK_LOCK:
         task = _TASKS.get(task_id)
 
@@ -212,6 +311,13 @@ def _run_task(task_id: str) -> None:
     logger = logging.getLogger("salsa-milk")
 
     def update(stage: str, fraction: float, message: str | None) -> None:
+        """Update task progress.
+        
+        Args:
+            stage: Processing stage identifier.
+            fraction: Progress fraction (0.0 to 1.0).
+            message: Optional progress message.
+        """
         with _TASK_LOCK:
             current = _TASKS.get(task_id)
             if current is None:
@@ -263,6 +369,13 @@ def _run_task(task_id: str) -> None:
 
 
 def _finalize_task(task_id: str) -> None:
+    """Clean up task resources and remove from tracking.
+    
+    Deletes temporary working directory and removes task from registry.
+    
+    Args:
+        task_id: Unique task identifier.
+    """
     with _TASK_LOCK:
         task = _TASKS.pop(task_id, None)
 

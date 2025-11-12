@@ -1,0 +1,48 @@
+[project]
+name = "salsa-milk"
+version = "1.0.0"
+description = "Extract vocals from media files using Demucs"
+authors = [
+    {name = "Ragaeeb Haq"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+license = {text = "MIT"}
+keywords = ["audio", "video", "vocals", "demucs", "separation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/ragaeeb/salsa-milk"
+Repository = "https://github.com/ragaeeb/salsa-milk"
+Issues = "https://github.com/ragaeeb/salsa-milk/issues"
+
+[project.scripts]
+salsa-milk = "salsa_milk_cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["salsa_milk*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A"]
+ignore = ["E501"]

@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Command-line interface for the Salsa Milk vocal isolation pipeline."""
+"""Command-line interface for the Salsa Milk vocal isolation pipeline.
+
+This module provides a command-line interface for processing audio and video files
+to isolate vocals using the Demucs AI model. It supports both local files and
+YouTube URLs as input.
+
+Example:
+    $ python salsa-milk.py song.mp3 https://youtube.com/watch?v=abc
+    $ python salsa-milk.py --model htdemucs --output-dir ./output video.mp4
+"""
 
 from __future__ import annotations
 
@@ -13,8 +22,13 @@ from salsa_milk_core import download_from_youtube, process_files
 
 
 def configure_logging() -> logging.Logger:
-    """Configure default logging for the CLI."""
-
+    """Configure default logging for the CLI.
+    
+    Sets up INFO level logging with timestamps and sends output to stdout.
+    
+    Returns:
+        Configured logger instance for salsa-milk.
+    """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -24,8 +38,16 @@ def configure_logging() -> logging.Logger:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
-
+    """Parse command-line arguments.
+    
+    Returns:
+        Namespace containing parsed command-line arguments including:
+            - inputs: List of input files or YouTube URLs
+            - model: Demucs model name
+            - temp_dir: Temporary working directory
+            - output_dir: Output directory for processed files
+            - download_dir: Directory for YouTube downloads
+    """
     parser = argparse.ArgumentParser(
         description="Extract vocals from media files or YouTube URLs using Demucs.",
     )
@@ -56,8 +78,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Execute the CLI workflow."""
-
+    """Execute the CLI workflow.
+    
+    This function orchestrates the complete workflow:
+    1. Parses command-line arguments
+    2. Creates necessary directories
+    3. Separates YouTube URLs from local files
+    4. Downloads videos from YouTube
+    5. Processes all media files
+    6. Reports results
+    
+    Exits with code 1 if no valid inputs are provided or processing fails.
+    """
     logger = configure_logging()
     args = parse_args()
 

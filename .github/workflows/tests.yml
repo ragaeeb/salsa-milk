@@ -9,7 +9,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,12 +31,38 @@ jobs:
           uv pip install --system -r requirements.txt
           uv pip install --system pytest pytest-cov
       
-      - name: Run tests
+      - name: Run tests (excluding integration)
         run: |
-          pytest --maxfail=1 --disable-warnings --cov=. --cov-report=term-missing
+          pytest --maxfail=1 --disable-warnings --cov=. --cov-report=term-missing -m "not integration"
       
       - name: Check code with ruff (if available)
         run: |
           uv pip install --system ruff || true
           ruff check . || true
         continue-on-error: true
+
+  integration:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      
+      - name: Install uv
+        uses: actions/setup-uv@v4
+        with:
+          enable-cache: true
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      
+      - name: Install Python dependencies
+        run: |
+          uv pip install --system -r requirements.txt
+          uv pip install --system pytest
