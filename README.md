@@ -71,6 +71,45 @@ streamlit run streamlit_app.py
 
 The page title shows the current Salsa Milk version so you can confirm the deployed build.
 
+## 🧰 Running the CLI Locally (No Containers)
+
+If you prefer to use the Python CLI directly on your machine, install the Python
+dependencies and `ffmpeg`, then invoke `salsa-milk.py`.
+
+### 1. Install System Packages
+
+macOS (Homebrew):
+
+```bash
+brew install ffmpeg
+```
+
+Ubuntu/Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ffmpeg python3 python3-venv
+```
+
+### 2. Create and Populate a Virtual Environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 3. Run the CLI Script
+
+```bash
+python salsa-milk.py /path/to/video.mp4
+```
+
+On first launch, Demucs will download its model weights into
+`~/.cache/demucs/`—allow a few minutes for the initial setup. Processed files
+default to `/output`, which you can override with `--output-dir`.
+
 ## 🚀 CLI Installation
 
 The CLI tooling is still available for batch processing, automation, or Podman/Docker usage.
